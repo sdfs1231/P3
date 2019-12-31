@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-
+import os
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset
@@ -36,7 +36,7 @@ class Normalize(object):
     def __call__(self, sample):
         image, landmarks = sample['image'], sample['landmarks']
         image_resize = np.asarray(
-                            image.resize((train_boarder, train_boarder), Image.BILINEAR),
+                            cv2.resize(image,(train_boarder, train_boarder)),
                             dtype=np.float32)       # Image.ANTIALIAS)
         image = channel_norm(image_resize)
         return {'image': image,
@@ -54,21 +54,22 @@ class ToTensor(object):
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
-        # image = image.transpose((2, 0, 1))
-        image = np.expand_dims(image, axis=0)
+        image = image.transpose((2, 0, 1))
+        # image = np.expand_dims(image, axis=0)
         return {'image': torch.from_numpy(image),
                 'landmarks': torch.from_numpy(landmarks)}
 
 
 class FaceLandmarksDataset(Dataset):
     # Face Landmarks Dataset
-    def __init__(self, src_lines, transform=None):
+    def __init__(self, src_lines, phase,transform=None):
         '''
         :param src_lines: src_lines
         :param train: whether we are training or not
         :param transform: data transform
         '''
         self.lines = src_lines
+        self.phase = phase
         self.transform = transform
 
     def __len__(self):
@@ -76,27 +77,36 @@ class FaceLandmarksDataset(Dataset):
 
     def __getitem__(self, idx):
         img_name, rect, landmarks = parse_line(self.lines[idx])
-        # image
-        img = Image.open(img_name).convert('L')     
-        img_crop = img.crop(tuple(rect))            
+        # image cv2
+        img = cv2.imread(os.path.join('data',img_name))
+        # img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
+        img_crop = img[rect[1]:rect[3],rect[0]:rect[2]]
+        # image PIL Image
+        # img = Image.open(os.path.join('data',img_name)).convert('L')#convert to single channel
+        # img_crop = img.crop(tuple(rect))
         landmarks = np.array(landmarks).astype(np.float32)
 		
 		
         # you should let your landmarks fit to the train_boarder(112)
 		# please complete your code under this blank
 		# your code:
-		
-		
-		
-		
+        w = rect[2] - rect[0]
+        h = rect[3] - rect[1]
+        #train_border is the same
+        w_ratio = train_boarder/w
+        h_ratio = train_boarder/h
+        for idx in range(0,landmarks.size,2):
+            landmarks[idx] *= w_ratio
+            landmarks[idx+1] *= h_ratio
         sample = {'image': img_crop, 'landmarks': landmarks}
-        sample = self.transform(sample)
+        if self.transform:
+            sample = self.transform(sample)
         return sample
 
 
 def load_data(phase):
     data_file = phase + '.txt'
-    with open(data_file) as f:
+    with open(os.path.join('data',data_file)) as f:
         lines = f.readlines()
     if phase == 'Train' or phase == 'train':
         tsfm = transforms.Compose([
@@ -108,7 +118,7 @@ def load_data(phase):
             Normalize(),
             ToTensor()
         ])
-    data_set = FaceLandmarksDataset(lines, phase, transform=tsfm)
+    data_set = FaceLandmarksDataset(lines, phase,transform=tsfm)
     return data_set
 
 
@@ -124,18 +134,22 @@ if __name__ == '__main__':
         sample = train_set[i]
         img = sample['image']
         landmarks = sample['landmarks']
+        # print(landmarks.size)
         ## 请画出人脸crop以及对应的landmarks
 		# please complete your code under this blank
-		
-		
-		
-		
-		
-
+        # print(img.size())
+        img = img.squeeze(0)
+        # print(img.size())
+        img = img.numpy()
+        # img = np.asarray(img,dtype=np.int32)
+        for idx in range(0,landmarks.size,2):
+            cv2.circle(img,(int(landmarks[idx].item()),int(landmarks[idx+1].item())),1,(0,0,255),8)
+        cv2.imshow('test',img)
         key = cv2.waitKey()
         if key == 27:
             exit(0)
         cv2.destroyAllWindows()
+
 
 
 

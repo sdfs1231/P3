@@ -7,10 +7,13 @@ import os
 import cv2
 import random
 import matplotlib.pyplot as plt
-
+import re
+from Augment import Augment
 
 class Generate_list():
-    def __init__(self,labelfile):
+    def __init__(self,labelfile,aug=False):
+        self.aug = aug
+        self.aug_ratio = 0.1
         self.foldername = os.path.join('data')
         self.part = ['I','II']
         self.labelfile = labelfile
@@ -23,14 +26,13 @@ class Generate_list():
 
 
 
+
     def process_paras(self,imgs,part,lines):#Get original recs and landmarks cords
         for line in lines:
             line = line.strip().split()
             name = os.path.join(part,line[0])
-
             if name not in imgs.keys():
                 imgs[name] = []
-
             # else:
                 # print('photo %s has more than 1 face'%name)
 
@@ -51,7 +53,7 @@ class Generate_list():
                 print('For folder %s, image %s is unlabeled!!!'%part%detect)
             else:
                 labeledimgs[os.path.join(part,detect)] = []
-        return labeledimgs
+        return labeledimgs  #  part/image name.jpg
 
 
     def generate_Dataset(self): #Load original label.txt to find out unlabeled imgs and generate Dataset
@@ -61,15 +63,48 @@ class Generate_list():
         for part in self.part: #Generate raw data
             labelfile = os.path.join(self.foldername,part,self.labelfile)
             if not os.path.isfile(labelfile): #Can also write as try:...expect:...
-                self.Dataset = None
                 print('label file is can\'t be found!')
+                return None,None
             else:
                 with open(labelfile) as f:
                     labledimgs = f.readlines()
                 self.indentify_unlable(part,labledimgs)
                 imgs = self.process_paras(imgs,part,labledimgs)
 
+        if self.aug:
+            nums_aug = int(len(imgs.keys()) * self.aug_ratio)
+            aug_imgs = random.sample(imgs.keys(), nums_aug)
+            aug_imgs = [x for x in aug_imgs if re.match(r'.*\d{6}\.jpg', x)]
+        #augmentation
+            aug = Augment(aug_imgs,imgs)
+            aug.color_change()
+
+            nums_aug = int(len(imgs.keys()) * self.aug_ratio)
+            aug_imgs = random.sample(imgs.keys(), nums_aug)
+            aug_imgs = [x for x in aug_imgs if re.match(r'.*\d{6}\.jpg', x)]
+            aug = Augment(aug_imgs, imgs)
+            aug.bright_change()
+            # for name in aug_imgs:
+            #
+            #     org_img = cv2.imread(os.path.join('data',name))
+            #     h, w = org_img.shape[:2]
+            #     flip_img = cv2.flip(org_img, 1)
+            #     flip_img_name = name[:-4]+'flip'+'.jpg'
+            #     rect = imgs[name][-1][0]
+            #     rect_w = rect[2] - rect[0] + 1
+            #     landmarks = imgs[name][-1][1]
+            #     new_rect = [w - rect[0] -rect_w, rect[1], w - rect[2] +rect_w, rect[3]]
+            #     new_landmarks = []
+            #     for l in landmarks:
+            #         new_landmarks.append((w - l[0] + 1, l[1]))
+            #
+            #     cv2.imwrite(os.path.join('data',flip_img_name) , flip_img)
+            #
+            #     imgs[flip_img_name] = []
+            #     imgs[flip_img_name].append((new_rect, new_landmarks))
+
         for img in imgs: #Generate roi expand data
+            # print(img)
             if img not in roi_imgs:
                 roi_imgs[img] = []
             info = imgs[img]
@@ -120,46 +155,59 @@ class Generate_list():
         with open(os.path.join(self.foldername,filename),'a') as f:
             for name in data:
                 infos = self.roi_expand_Dataset[name]
-                if len(infos)>2:
-                    print(name)
+                # if len(infos)>2:
+                #     # print(name)
                 for info in infos:
                     s = name + ' ' + str(info).replace(' ', '').replace('(', '').replace('[', '')\
                         .replace(',', ' ').replace(')','').replace(']', '')
                     f.write(s+'\n')
 
     def seperate_write_file(self):
-        train_data = []
-        test_data = []
+        # train_data = []
+        # test_data = []
         val_data = []
         nums = len(self.roi_expand_Dataset)
-        for i,name in enumerate(self.roi_expand_Dataset):
-            if i<=self.train_percent*nums:
-                train_data.append(name)
-            else:
-                if i>(self.train_percent+self.test_percent)*nums and self.val_percent!=0:
-                    val_data.append(name)
-                else:
-                    test_data.append(name)
+        names = list(self.roi_expand_Dataset.keys())
+        random.shuffle(names)
+        cut = int(nums*self.train_percent)
+        train_data = names[:cut]
+        test_data = names[cut:]
+        # for i,name in enumerate(self.roi_expand_Dataset):
+        #         #     if i<=self.test_percent*nums or len(test_data)< self.test_percent*nums:
+        #         #         toll = random.choice([train_data,test_data])
+        #         #         toll.append(name)
+        #         #     else:
+        #         #         train_data.append(name)
+
+            # if i<=self.train_percent*nums:
+            #     train_data.append(name)
+            # else:
+            #     if i>(self.train_percent+self.test_percent)*nums and self.val_percent!=0:
+            #         val_data.append(name)
+            #     else:
+            #         test_data.append(name)
         self.write_file(self.save_file[0],train_data)
         self.write_file(self.save_file[1], test_data)
         self.write_file(self.save_file[2], val_data)
 
     def check(self): #Random choose a pic to draw the box
         trail = random.choice(list(self.roi_expand_Dataset.keys()))
+        while not re.match('.*flip.jpg',trail):
+            trail = random.choice(list(self.roi_expand_Dataset.keys()))
         img = cv2.imread(os.path.join(self.foldername, trail))
 
-        # rec_raw = self.rawDataset[trail][0][0]
+        rec_raw = self.rawDataset[trail][0][0]
         rec_roi = self.roi_expand_Dataset[trail][0][0]
 
         # landmarks_raw = self.rawDataset[trail][0][1]
         landmarks_roi = self.roi_expand_Dataset[trail][0][1]
 
-        # draw1 = cv2.rectangle(img, (rec_raw[0], rec_raw[1]), (rec_raw[2], rec_raw[3]), (0, 0, 255), 2)
+        draw1 = cv2.rectangle(img, (rec_raw[0], rec_raw[1]), (rec_raw[2], rec_raw[3]), (0, 0, 255), 2)
         draw2 = cv2.rectangle(img,(rec_roi[0],rec_roi[1]),(rec_roi[2],rec_roi[3]),(0,0,255),2)
 
         for point in landmarks_roi:
             cv2.circle(img,(int(point[0]+rec_roi[0]),int(point[1])+rec_roi[1]),1,(0,0,255))
-        cv2.imshow('test',draw2)
+        cv2.imshow('test',img)
         cv2.waitKey(0)
         cv2.destroyWindow("test")
 
@@ -169,5 +217,6 @@ class Generate_list():
         # cv2.waitKey(0)
         # cv2.destroyWindow('raw')
 
-test = Generate_list('label.txt')
-test.check()
+if __name__=='__main__':
+    test = Generate_list('label.txt',aug=True)
+    test.seperate_write_file()
