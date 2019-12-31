@@ -161,6 +161,8 @@ def main_test():
     model = Net().to(device)
     ####################################################################
     criterion_pts = nn.MSELoss()
+    cls_criterion_pts = nn.CrossEntropyLoss()
+
     optimizer = optim.Adam(model.parameters(), lr=args.lr )
     ####################################################################
     if args.phase == 'Train' or args.phase == 'train':
@@ -208,11 +210,11 @@ def main_test():
             model.load_state_dict(torch.load(os.path.join(args.save_directory, 'detector_epoch' + '_' + str(args.epochs) + '.pt')))
             #if we want to change output dim to 100
             model.ip3 = nn.Linear(...,100)
-            optimizer = optim.SGD(params=[model.ip3.weight, model.ip3.bias], lr=1e-2)
+            optimizer = optim.Adam(params=[model.ip3.weight, model.ip3.bias], lr=1e-5)
         else:
             model = models.resnet18(pretrained=True)
             model.fc = nn.Linear(in_features=512,out_features=42)
-            optimizer = optim.Adam(params=[model.fc.weight, model.fc.bias], lr=1e-2)
+            optimizer = optim.Adam(params=[model.fc.weight, model.fc.bias], lr=5*1e-5)
         for para in list(model.parameters())[:-1]:
             para.requires_grad = False
         #loss

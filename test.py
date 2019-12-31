@@ -5,7 +5,7 @@ import os
 import random
 import re
 import matplotlib.pyplot as plt
-
+print(5e-5-0.00005)
 print(round(random.uniform(0,3),1))
 
 
