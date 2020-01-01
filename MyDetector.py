@@ -14,7 +14,6 @@ from torchvision import models
 from generate_own_list import Generate_list
 from init import del_imgs,del_txts
 
-torch.set_default_tensor_type(torch.FloatTensor)
 
 def train(args, train_loader, valid_loader, model, criterion, optimizer, device):
     # save model
@@ -148,6 +147,7 @@ def main_test():
     # For single GPU
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")  # cuda:0
+    print(device)
     # For multi GPUs, nothing need to change here
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 

@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-torch.set_default_tensor_type(torch.FloatTensor)
+
 class Net(nn.Module):
     def __init__(self):
         super(Net,self).__init__()
