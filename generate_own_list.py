@@ -19,8 +19,8 @@ class Generate_list():
         self.labelfile = labelfile
         self.save_file = ['train.txt','test.txt','val.txt']
         self.val_percent = 0
-        self.test_percent = 0.3
-        self.train_percent = 0.7
+        self.test_percent = 0.1
+        self.train_percent = 0.9
         self.expand_roi_ratio = 0.25
         self.rawDataset ,self.roi_expand_Dataset = self.generate_Dataset()
 
@@ -31,20 +31,21 @@ class Generate_list():
         for line in lines:
             line = line.strip().split()
             name = os.path.join(part,line[0])
+            cls = list(line[-1])
             if name not in imgs.keys():
                 imgs[name] = []
             # else:
                 # print('photo %s has more than 1 face'%name)
 
             rect = list(map(int, list(map(float, line[1:5]))))
-            x = list(map(float, line[5::2]))
-            y = list(map(float, line[6::2]))
+            x = list(map(float, line[5:len(line)-1:2]))
+            y = list(map(float, line[6:len(line)-1:2]))
             landmarks = list(zip(x, y))
-            imgs[name].append((rect, landmarks))
+            imgs[name].append((rect, landmarks,cls))
         # print(temp)
         return imgs
 
-    def indentify_unlable(self,part,lines):#Inorder to find unlabeled imgs
+    def indentify_unlable(self,part,lines):#  find unlabeled imgs
         labeledimgs = {}
         for line in lines:
             detect = line.split()[0]
@@ -140,7 +141,7 @@ class Generate_list():
             new_rec = list(map(int,[roi_x1,roi_y1,roi_x2,roi_y2]))
             new_landmarks = landmarks - np.array([roi_x1,roi_y1])
             new_landmarks = new_landmarks.tolist() #change to list in order to write
-            roi_img.append((new_rec,new_landmarks))
+            roi_img.append((new_rec,new_landmarks,info[-1]))
         # if img_name == 'II\\008520.jpg':
         #     print(len(roi_img))
         return roi_img

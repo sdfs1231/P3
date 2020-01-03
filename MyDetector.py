@@ -15,7 +15,7 @@ from generate_own_list import Generate_list
 from init import del_imgs,del_txts
 
 
-def train(args, train_loader, valid_loader, model, criterion, optimizer, device):
+def train(args, train_loader, valid_loader, model, criterion, cls_criterion,optimizer, device):
     # save model
     if args.save_model:
         if not os.path.exists(args.save_directory):
@@ -23,6 +23,7 @@ def train(args, train_loader, valid_loader, model, criterion, optimizer, device)
 
     epoch = args.epochs
     pts_criterion = criterion
+    cls_pts_criterion = cls_criterion
     # print(train_loader)
     train_losses = []
     valid_losses = []
@@ -38,20 +39,25 @@ def train(args, train_loader, valid_loader, model, criterion, optimizer, device)
             # print(len(batch))
             img = batch['image']
             landmark = batch['landmarks']
+            cls = batch['class']
 
 
             # ground truth
             input_img = img.to(device)
             target_pts = landmark.to(device)
+            target_cls_pts = cls.to(device)
 
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
 
             # get output
-            output_pts = model(input_img)
+            output_pts,cls_pts = model(input_img)
 
             # get loss
-            loss = pts_criterion(output_pts, target_pts)
+            loss1 = pts_criterion(output_pts, target_pts)
+            loss2 = cls_pts_criterion(cls_pts,target_cls_pts)
+
+            loss= a*loss1+b*loss2
 
             # do BP automatically
             loss.backward()
@@ -83,15 +89,19 @@ def train(args, train_loader, valid_loader, model, criterion, optimizer, device)
             valid_batch_cnt += 1
             valid_img = batch['image']
             landmark = batch['landmarks']
+            cls = batch['class']
 
             input_img = valid_img.to(device)
             target_pts = landmark.to(device)
+            target_cls_pts = cls.to(device)
 
-            output_pts = model(input_img)
+            output_pts,cls_pts = model(input_img)
 
             valid_loss = pts_criterion(output_pts, target_pts)
+            class_loss = cls_pts_criterion(cls_pts,target_cls_pts)
 
-            valid_mean_pts_loss += valid_loss.item()
+            loss = valid_loss.item()*a + class_loss.item()*b
+            valid_mean_pts_loss += loss
 
             #record per 100 times valid loss
             if valid_batch_idx % args.log_interval == 0:
@@ -168,7 +178,7 @@ def main_test():
     if args.phase == 'Train' or args.phase == 'train':
         print('===> Start Training')
         train_losses, valid_losses = \
-            train(args, train_loader, valid_loader, model, criterion_pts, optimizer, device)
+            train(args, train_loader, valid_loader, model, criterion_pts, cls_criterion_pts,optimizer, device)
         plt.figure(1)
         train_x = np.arange(0,len(train_losses))
         plt.plot(train_x,train_losses,color='r',linestyle='-',label='train loss')
@@ -218,6 +228,7 @@ def main_test():
         for para in list(model.parameters())[:-1]:
             para.requires_grad = False
         #loss
+        model.to(device)
         criterion_pts = nn.MSELoss()
         #smaller lr
 

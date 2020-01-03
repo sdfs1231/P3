@@ -24,8 +24,9 @@ def parse_line(line):
     line_parts = line.strip().split()
     img_name = line_parts[0]
     rect = list(map(int, list(map(float, line_parts[1:5]))))
-    landmarks = list(map(float, line_parts[5: len(line_parts)]))
-    return img_name, rect, landmarks
+    landmarks = list(map(float, line_parts[5: len(line_parts)-1]))
+    cls = line_parts[-1]
+    return img_name, rect, landmarks,cls
 
 
 class Normalize(object):
@@ -34,13 +35,14 @@ class Normalize(object):
         Then do channel normalization: (image - mean) / std_variation
     """
     def __call__(self, sample):
-        image, landmarks = sample['image'], sample['landmarks']
+        image, landmarks, cls= sample['image'], sample['landmarks'],sample['class']
         image_resize = np.asarray(
                             cv2.resize(image,(train_boarder, train_boarder)),
                             dtype=np.float32)       # Image.ANTIALIAS)
         image = channel_norm(image_resize)
         return {'image': image,
-                'landmarks': landmarks
+                'landmarks': landmarks,
+                'class': cls
                 }
 
 
@@ -50,14 +52,15 @@ class ToTensor(object):
         Tensors channel sequence: N x C x H x W
     """
     def __call__(self, sample):
-        image, landmarks = sample['image'], sample['landmarks']
+        image, landmarks,cls = sample['image'], sample['landmarks'],sample['class']
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
         image = image.transpose((2, 0, 1))
         # image = np.expand_dims(image, axis=0)
         return {'image': torch.from_numpy(image),
-                'landmarks': torch.from_numpy(landmarks)}
+                'landmarks': torch.from_numpy(landmarks),
+                'class': torch.from_numpy(cls)}
 
 
 class FaceLandmarksDataset(Dataset):
@@ -76,7 +79,7 @@ class FaceLandmarksDataset(Dataset):
         return len(self.lines)
 
     def __getitem__(self, idx):
-        img_name, rect, landmarks = parse_line(self.lines[idx])
+        img_name, rect, landmarks,cls = parse_line(self.lines[idx])
         # image cv2
         img = cv2.imread(os.path.join('data',img_name))
         # img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
@@ -98,7 +101,7 @@ class FaceLandmarksDataset(Dataset):
         for idx in range(0,landmarks.size,2):
             landmarks[idx] *= w_ratio
             landmarks[idx+1] *= h_ratio
-        sample = {'image': img_crop, 'landmarks': landmarks}
+        sample = {'image': img_crop, 'landmarks': landmarks,'class':cls}
         if self.transform:
             sample = self.transform(sample)
         return sample
@@ -134,6 +137,7 @@ if __name__ == '__main__':
         sample = train_set[i]
         img = sample['image']
         landmarks = sample['landmarks']
+        cls = sample['class']
         # print(landmarks.size)
         ## 请画出人脸crop以及对应的landmarks
 		# please complete your code under this blank
@@ -144,7 +148,7 @@ if __name__ == '__main__':
         # img = np.asarray(img,dtype=np.int32)
         for idx in range(0,landmarks.size,2):
             cv2.circle(img,(int(landmarks[idx].item()),int(landmarks[idx+1].item())),1,(0,0,255),8)
-        cv2.imshow('test',img)
+        cv2.imshow('face' if cls.item() else 'non_face',img)
         key = cv2.waitKey()
         if key == 27:
             exit(0)
