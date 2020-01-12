@@ -7,13 +7,13 @@ import numpy as np
 import torch.nn.functional as F
 import torch.optim as optim
 from data import get_train_test_set,channel_norm
-from MyNet import Net
+from MyNet2 import Net
 import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision import models
 from generate_own_list import Generate_list
 from init import del_imgs,del_txts
-
+from MaskedMSELoss import MaskedMSELoss
 
 def train(args, train_loader, valid_loader, model, criterion, cls_criterion,optimizer, device):
     # save model
@@ -23,41 +23,68 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
 
     epoch = args.epochs
     pts_criterion = criterion
-    cls_pts_criterion = cls_criterion
+    # cls_pts_criterion = cls_criterion
+
     # print(train_loader)
     train_losses = []
     valid_losses = []
-
+    corrects = 0
     for epoch_id in range(epoch):
         # monitor training loss
         train_mean_loss = 0.0
         ######################
         # training the model #
         ######################
+
+
         model.train()
         for batch_idx, batch in enumerate(train_loader):
             # print(len(batch))
             img = batch['image']
             landmark = batch['landmarks']
             cls = batch['class']
+            cls = cls.squeeze(1)
 
 
             # ground truth
             input_img = img.to(device)
             target_pts = landmark.to(device)
             target_cls_pts = cls.to(device)
+            # print(target_cls_pts.size())
+
+            sum_face = sum(target_cls_pts==1)
+            sum_no_face = sum(target_cls_pts==0)
+            assert(sum_face+sum_no_face==len(batch
+                                             ['class']))
+            face_weight = [1., sum_face * 1. / sum_no_face]
+            face_weight = torch.FloatTensor(face_weight).to(device)
+            cls_pts_criterion = nn.CrossEntropyLoss(weight=face_weight)
 
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
 
             # get output
             output_pts,cls_pts = model(input_img)
+            cls_pts = cls_pts.view(-1,2)
 
+            # print(cls_pts.size())
+
+            _,predict = torch.max(cls_pts,1)
+            # print(predict[0].item())
+
+            # print(predict)
+            corrects = torch.sum(predict==target_cls_pts)
+
+
+
+            # F.cross_entropy(cls_pts, target_cls_pts, weight=face_weight)
             # get loss
-            loss1 = pts_criterion(output_pts, target_pts)
-            loss2 = cls_pts_criterion(cls_pts,target_cls_pts)
 
-            loss= a*loss1+b*loss2
+            loss1 = pts_criterion(output_pts, target_pts,target_cls_pts)
+            loss2fn = nn.CrossEntropyLoss(weight=face_weight)
+            loss2 = loss2fn(cls_pts, target_cls_pts)
+
+            loss= 0.5*loss1+0.5*loss2
 
             # do BP automatically
             loss.backward()
@@ -74,6 +101,36 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
                     loss.item()
                 )
                 )
+
+                TP = 0
+                TN = 0
+                p_acc = 0.
+                n_acc = 0.
+                total_acc = 100 * corrects / len(batch['class'])
+                for id, value in enumerate(target_cls_pts):
+                    # print(value)
+                    if predict[id].item() == value.item() and value.item() ==1:
+                        TP += 1
+                    elif predict[id].item() == value.item() and value.item() ==0:
+                        TN += 1
+                print(TP,TN)
+
+                if TP==0 or TN==0:
+                    if TP ==0:
+                        print('No positive sample in this sampple')
+                        p_acc =0.
+                    if TN ==0:
+                        print('No positive sample in this sampple')
+                        n_acc = 0.
+                else:
+                    p_acc = 100. * TP / sum(target_cls_pts == 1).item()
+                    n_acc = 100. * TN / sum(target_cls_pts == 0).item()
+
+                print('Total accuracy: {:.2f}% ,Positive accuracy :{:.2f}% ,Negative accuracy :{:.2f}%'.format(
+                    total_acc,
+                    p_acc,
+                    n_acc
+                ))
         train_losses.append(loss.item())
 
     ######################
@@ -94,13 +151,17 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
             input_img = valid_img.to(device)
             target_pts = landmark.to(device)
             target_cls_pts = cls.to(device)
+            print(target_cls_pts)
 
             output_pts,cls_pts = model(input_img)
 
-            valid_loss = pts_criterion(output_pts, target_pts)
+            cls_pts = cls_pts.view(-1,2)
+            cls_pts = torch.max(cls_pts,dim=1)
+
+            valid_loss = pts_criterion(output_pts, target_pts,target_cls_pts)
             class_loss = cls_pts_criterion(cls_pts,target_cls_pts)
 
-            loss = valid_loss.item()*a + class_loss.item()*b
+            loss = valid_loss.item()*0.5 + class_loss.item()*0.5
             valid_mean_pts_loss += loss
 
             #record per 100 times valid loss
@@ -125,9 +186,9 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
 
 def main_test():
     parser = argparse.ArgumentParser(description='MyDetector')
-    parser.add_argument('--batch_size', type=int, default=64, metavar='N',
-                        help='input batch size for training (default: 64)')
-    parser.add_argument('--test_batch_size', type=int, default=64, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=32, metavar='N',
+                        help='input batch size for training (default: 32)')
+    parser.add_argument('--test_batch_size', type=int, default=32, metavar='N',
                         help='input batch size for testing (default: 64)')
     parser.add_argument('--epochs', type=int, default=100, metavar='N',
                         help='number of epochs to train (default: 100)')
@@ -170,8 +231,8 @@ def main_test():
     # For single GPU
     model = Net().to(device)
     ####################################################################
-    criterion_pts = nn.MSELoss()
-    cls_criterion_pts = nn.CrossEntropyLoss()
+    criterion_pts = MaskedMSELoss()
+    cls_criterion_pts = nn.CrossEntropyLoss
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr )
     ####################################################################
@@ -230,6 +291,7 @@ def main_test():
         #loss
         model.to(device)
         criterion_pts = nn.MSELoss()
+
         #smaller lr
 
         train_set,test_set = get_train_test_set()
@@ -299,11 +361,18 @@ if __name__ == '__main__':
     print("==> Start Cleaning the environment")
     del_imgs()
     del_txts()
-    print("="*5,'Done','='*5)
+    print("="*10,'Done','='*10)
+    print('\n')
 
     print('==> Generating the data set')
     test = Generate_list('label.txt', aug=True)
     test.seperate_write_file()
-    print('='*5,'done','='*5)
+    print('='*10,'Done','='*10)
+    print('\n')
+
+    print('==> Generating None Face data set')
+    test = Generate_list('label.txt', aug=True)
+    test.seperate_write_file()
+    print('=' * 10, 'Done', '=' * 10)
 
     main_test()

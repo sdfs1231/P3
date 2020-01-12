@@ -30,7 +30,7 @@ class Augment():
             cv2.imwrite(os.path.join('data', flip_img_name), flip_img)
 
             self.infos[flip_img_name] = []
-            self.infos[flip_img_name].append((new_rect, new_landmarks))
+            self.infos[flip_img_name].append((new_rect, new_landmarks,1))
         if self.debug:
             #print augmentation img name
             print(x for x in self.dataset)
@@ -58,7 +58,7 @@ class Augment():
                 cv2.imwrite(os.path.join('data', ccimg),new_img)
             self.infos[ccimg] = []
             for info in self.infos[img_name]:
-                self.infos[ccimg].append((info[0], info[1]))
+                self.infos[ccimg].append((info[0], info[1],1))
 
 
     def bright_change(self):
@@ -79,7 +79,7 @@ class Augment():
                 cv2.imwrite(os.path.join('data', newimg_name),dst)
             self.infos[newimg_name] = []
             for info in self.infos[img_name]:
-                self.infos[newimg_name].append((info[0], info[1]))
+                self.infos[newimg_name].append((info[0], info[1],1))
 
 
 

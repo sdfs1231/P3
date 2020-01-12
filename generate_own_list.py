@@ -9,9 +9,11 @@ import random
 import matplotlib.pyplot as plt
 import re
 from Augment import Augment
+from Generate_Non_Face import Generate_Non_Face
 
 class Generate_list():
     def __init__(self,labelfile,aug=False):
+        self.no_face_ratio = 0.05
         self.aug = aug
         self.aug_ratio = 0.1
         self.foldername = os.path.join('data')
@@ -31,17 +33,16 @@ class Generate_list():
         for line in lines:
             line = line.strip().split()
             name = os.path.join(part,line[0])
-            cls = list(line[-1])
             if name not in imgs.keys():
                 imgs[name] = []
             # else:
                 # print('photo %s has more than 1 face'%name)
 
             rect = list(map(int, list(map(float, line[1:5]))))
-            x = list(map(float, line[5:len(line)-1:2]))
-            y = list(map(float, line[6:len(line)-1:2]))
+            x = list(map(float, line[5:len(line):2]))
+            y = list(map(float, line[6:len(line):2]))
             landmarks = list(zip(x, y))
-            imgs[name].append((rect, landmarks,cls))
+            imgs[name].append((rect, landmarks,1))
         # print(temp)
         return imgs
 
@@ -104,14 +105,27 @@ class Generate_list():
             #     imgs[flip_img_name] = []
             #     imgs[flip_img_name].append((new_rect, new_landmarks))
 
-        for img in imgs: #Generate roi expand data
+        # Generate roi expand data
+        for img in imgs:
             # print(img)
             if img not in roi_imgs:
                 roi_imgs[img] = []
             info = imgs[img]
             new_info = self.expand_roi(img,info,self.expand_roi_ratio)
             roi_imgs[img] = new_info
-        return imgs,roi_imgs
+
+
+        # Generate None Face data
+        nums_no_face = int(len(roi_imgs.keys()) * self.no_face_ratio)
+        no_face_candidate = random.sample(roi_imgs.keys(),nums_no_face)
+        no_face_candidate = [x for x in no_face_candidate if re.match(r'.*\d{6}\.jpg', x)]
+        # print(no_face_candidate)
+        no_face_generator = Generate_Non_Face(no_face_candidate,roi_imgs)
+        no_face_generator.random_crop()
+
+        return imgs, roi_imgs
+
+
 
 
     def expand_roi(self,img_name,img_info,ratio=0.25): #Per image input all paras update (consider to concate name and info)
@@ -126,8 +140,8 @@ class Generate_list():
             y1 = box[1]
             x2 = box[2]
             y2 = box[3]
-            width = x2 - x1 + 1
-            height = y2 - y1 +1
+            width = abs(x2 - x1 + 1)
+            height = abs(y2 - y1 +1)
             wpad = width * ratio
             hpad = height * ratio
             roi_x1 = x1 - wpad
@@ -140,8 +154,9 @@ class Generate_list():
             roi_y2 = img_h - 1 if roi_y2>img_h else roi_y2
             new_rec = list(map(int,[roi_x1,roi_y1,roi_x2,roi_y2]))
             new_landmarks = landmarks - np.array([roi_x1,roi_y1])
+            new_landmarks[new_landmarks<0] = 0
             new_landmarks = new_landmarks.tolist() #change to list in order to write
-            roi_img.append((new_rec,new_landmarks,info[-1]))
+            roi_img.append((new_rec,new_landmarks,1))
         # if img_name == 'II\\008520.jpg':
         #     print(len(roi_img))
         return roi_img
@@ -151,8 +166,9 @@ class Generate_list():
         if os.path.isfile(os.path.join(self.foldername,filename)):
             # Because file open as 'a', dont want to append
             # exit file anymore!
-            print('%s has exited'%filename)
-            return None
+            print('%s has exited,removing......'%filename)
+            os.remove(os.path.join(self.foldername,filename))
+            print('='*10+'Removing Done'+'='*10)
         with open(os.path.join(self.foldername,filename),'a') as f:
             for name in data:
                 infos = self.roi_expand_Dataset[name]
@@ -219,5 +235,8 @@ class Generate_list():
         # cv2.destroyWindow('raw')
 
 if __name__=='__main__':
+    from init import del_txts,del_imgs
+    del_txts()
+    del_imgs()
     test = Generate_list('label.txt',aug=True)
     test.seperate_write_file()

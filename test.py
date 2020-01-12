@@ -5,9 +5,31 @@ import os
 import random
 import re
 import matplotlib.pyplot as plt
-print(5e-5-0.00005)
-print(round(random.uniform(0,3),1))
-
+import torch
+from MaskedMSELoss import MaskedMSELoss
+from MyNet2 import Net
+import torch.nn as nn
+# print(23**2-23)
+# def l2(a,b):
+#     return (a-b)**2
+#
+# a = [[1,2,3,4],[9,10,11,12]]
+# # b = [[5,6,7,8],[]]
+# mask = [1,0]
+# a = np.asarray(a,dtype=np.float32)
+# # b = np.asarray(b,dtype=np.float32)
+# a = torch.from_numpy(a)
+# # b = torch.from_numpy(b)
+#
+# print(a.shape)
+# print(a.shape[0])
+# mask = np.asarray(mask,dtype=np.int8)
+#
+# mask = torch.from_numpy(mask)
+# mask = torch.reshape(mask,(a.shape[0],1))
+# print(a*mask)
+# f = nn.MSELoss()
+# print(f(a*mask,b*mask))
 
 
 # a={'a':[],'b':[],'c':[],'d':[]}
@@ -49,12 +71,12 @@ print(round(random.uniform(0,3),1))
 # picknum = int((len(pathDir)-1)*0.1)
 # pickname = random.sample(pathDir,picknum)
 # pickname = [ x for x in pickname if re.match(r'\w{6}\.jpg',x)]
-# org_img = cv2.imread(os.path.join(choose,pickname[0]))
-# print(org_img.shape)
-# flip_img = cv2.flip(org_img,1)
-# cv2.imshow('test',flip_img)
-# key = cv2.waitKey()
-# if key == 27:
-#     cv2.destroyAllWindows()
+
+org_img = cv2.imread(os.path.join('data','I\\004470.jpg'))
+crop_img = org_img[550:584,116:363]
+cv2.imshow('test',crop_img)
+key = cv2.waitKey()
+if key == 27:
+    cv2.destroyAllWindows()
 # print(re.match(r'\w+\.jpg',pickname[0]))
 # print(len(pickname))
