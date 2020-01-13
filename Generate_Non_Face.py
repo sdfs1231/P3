@@ -32,8 +32,13 @@ class Generate_Non_Face():
             orgright = max(right)
             orgbottom = max(bottom)
             orgrect = [orgleft,orgtop,orgright,orgbottom]
+            t = 0
             while crops<self.crop_nums:
                 # print('do')
+                t += 1
+                if t>10:
+                    print('%s img crop 10 times failed'%img_name)
+                    break
                 croprect = []
                 cropleft = random.randrange(1,int(w/2))
                 croptop = random.randrange(1,int(h/2))
@@ -48,6 +53,7 @@ class Generate_Non_Face():
                     crops+=1
                     if self.debug:
                         self.check(img_name,croprect)
+
             if self.debug:
                 print('Crop Done')
 

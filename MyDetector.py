@@ -56,7 +56,7 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
             sum_no_face = sum(target_cls_pts==0)
             assert(sum_face+sum_no_face==len(batch
                                              ['class']))
-            face_weight = [1., sum_face * 1. / sum_no_face]
+            face_weight = [1., 5.]
             face_weight = torch.FloatTensor(face_weight).to(device)
             cls_pts_criterion = nn.CrossEntropyLoss(weight=face_weight)
 
@@ -104,8 +104,6 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
 
                 TP = 0
                 TN = 0
-                p_acc = 0.
-                n_acc = 0.
                 total_acc = 100 * corrects / len(batch['class'])
                 for id, value in enumerate(target_cls_pts):
                     # print(value)
@@ -113,18 +111,8 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
                         TP += 1
                     elif predict[id].item() == value.item() and value.item() ==0:
                         TN += 1
-                print(TP,TN)
-
-                if TP==0 or TN==0:
-                    if TP ==0:
-                        print('No positive sample in this sampple')
-                        p_acc =0.
-                    if TN ==0:
-                        print('No positive sample in this sampple')
-                        n_acc = 0.
-                else:
-                    p_acc = 100. * TP / sum(target_cls_pts == 1).item()
-                    n_acc = 100. * TN / sum(target_cls_pts == 0).item()
+                p_acc = 100. * TP / sum(target_cls_pts == 1).item() if sum(target_cls_pts == 1).item() else 0
+                n_acc = 100. * TN / sum(target_cls_pts == 0).item() if sum(target_cls_pts == 0).item() else 0
 
                 print('Total accuracy: {:.2f}% ,Positive accuracy :{:.2f}% ,Negative accuracy :{:.2f}%'.format(
                     total_acc,
@@ -151,7 +139,7 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
             input_img = valid_img.to(device)
             target_pts = landmark.to(device)
             target_cls_pts = cls.to(device)
-            print(target_cls_pts)
+            # print(target_cls_pts)
 
             output_pts,cls_pts = model(input_img)
 
@@ -187,8 +175,8 @@ def train(args, train_loader, valid_loader, model, criterion, cls_criterion,opti
 def main_test():
     parser = argparse.ArgumentParser(description='MyDetector')
     parser.add_argument('--batch_size', type=int, default=32, metavar='N',
-                        help='input batch size for training (default: 32)')
-    parser.add_argument('--test_batch_size', type=int, default=32, metavar='N',
+                        help='input batch size for training (default: 64)')
+    parser.add_argument('--test_batch_size', type=int, default=64, metavar='N',
                         help='input batch size for testing (default: 64)')
     parser.add_argument('--epochs', type=int, default=100, metavar='N',
                         help='number of epochs to train (default: 100)')
@@ -218,7 +206,7 @@ def main_test():
     # For single GPU
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")  # cuda:0
-    print(device)
+    print('device: ',device)
     # For multi GPUs, nothing need to change here
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
@@ -234,7 +222,7 @@ def main_test():
     criterion_pts = MaskedMSELoss()
     cls_criterion_pts = nn.CrossEntropyLoss
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr )
+    optimizer = optim.SGD(model.parameters(), lr=args.lr ,momentum=args.momentum)
     ####################################################################
     if args.phase == 'Train' or args.phase == 'train':
         print('===> Start Training')

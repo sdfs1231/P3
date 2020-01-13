@@ -4,13 +4,13 @@ import torch.nn as nn
 class MaskedMSELoss(torch.nn.Module):
     def __init__(self):
         super(MaskedMSELoss, self).__init__()
-        self.criterion = nn.MSELoss()
+        self.criterion = nn.MSELoss(reduction='sum')
 
     def forward(self, input, target, mask):
         # diff2 = (torch.flatten(input) - torch.flatten(target)) ** 2.0
         mask = torch.reshape(mask,(input.shape[0],1))
 
-        self.loss = self.criterion(input*mask,target*mask)
+        self.loss = self.criterion(input*mask,target*mask)/torch.sum(mask)
 
         return self.loss
 

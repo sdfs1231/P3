@@ -86,6 +86,7 @@ class Generate_list():
             aug_imgs = [x for x in aug_imgs if re.match(r'.*\d{6}\.jpg', x)]
             aug = Augment(aug_imgs, imgs)
             aug.bright_change()
+            print('='*20,'Augmentation Done','='*20)
             # for name in aug_imgs:
             #
             #     org_img = cv2.imread(os.path.join('data',name))
@@ -113,6 +114,7 @@ class Generate_list():
             info = imgs[img]
             new_info = self.expand_roi(img,info,self.expand_roi_ratio)
             roi_imgs[img] = new_info
+        print('=' * 20, 'Expand Roi Done', '=' * 20)
 
 
         # Generate None Face data
@@ -122,6 +124,7 @@ class Generate_list():
         # print(no_face_candidate)
         no_face_generator = Generate_Non_Face(no_face_candidate,roi_imgs)
         no_face_generator.random_crop()
+        print('=' * 20, 'Generate No-Face Done', '=' * 20)
 
         return imgs, roi_imgs
 

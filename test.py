@@ -9,6 +9,18 @@ import torch
 from MaskedMSELoss import MaskedMSELoss
 from MyNet2 import Net
 import torch.nn as nn
+
+for i in range(10):
+    print(i)
+    for j in range(5):
+        if j>5:
+            break
+# a = np.array([[1,2],[3,4],[5,6]])
+# b = np.array([[1],[0],[1]])
+# a = torch.from_numpy(a)
+# b = torch.from_numpy(b)
+# print(a*b)
+# print(torch.sum(b))
 # print(23**2-23)
 # def l2(a,b):
 #     return (a-b)**2
@@ -72,11 +84,11 @@ import torch.nn as nn
 # pickname = random.sample(pathDir,picknum)
 # pickname = [ x for x in pickname if re.match(r'\w{6}\.jpg',x)]
 
-org_img = cv2.imread(os.path.join('data','I\\004470.jpg'))
-crop_img = org_img[550:584,116:363]
-cv2.imshow('test',crop_img)
-key = cv2.waitKey()
-if key == 27:
-    cv2.destroyAllWindows()
+# org_img = cv2.imread(os.path.join('data','I\\004470.jpg'))
+# crop_img = org_img[550:584,116:363]
+# cv2.imshow('test',crop_img)
+# key = cv2.waitKey()
+# if key == 27:
+#     cv2.destroyAllWindows()
 # print(re.match(r'\w+\.jpg',pickname[0]))
 # print(len(pickname))
